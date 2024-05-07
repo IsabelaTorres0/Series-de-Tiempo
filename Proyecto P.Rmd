@@ -1,0 +1,79 @@
+---
+title: "Proyecto Isa"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(tidyquant)
+library(tsibble)
+library(plotly)
+library(lubridate)
+library(ggplot2)
+library(fable)
+library(feasts)
+
+```
+
+```{r}
+#importar primer variable
+(disney <- tq_get("dis", get = "stock.prices", from = "2014-01-01", to = "2024-01-29"))
+disney
+```
+
+```{r}
+#Limpiamos los datos
+datos_limpios = select(target, -open, -high, -low, -close, -volume)
+datos_limpios = as_tsibble(datos_limpios)
+datos_limpios
+```
+```{r}
+#Proyectamos la acción
+library(feasts)
+datos_limpios %>% 
+  autoplot(adjusted) +
+  labs(y = "close", title ="Accion Disney")
+```
+
+```{r}
+#rellenamos los datos
+datos_limpios <- datos_limpios %>%
+  fill_gaps() 
+```
+
+
+```{r}
+#Gráfica estacional
+library(feasts)
+
+datos_limpios %>% 
+  ungroup() %>%
+  gg_season(adjusted, labels = "both") +
+  labs(y = "close", x = "date",title ="Accion Disney")
+```
+
+
+```{r}
+
+yearly_data_plot = datos_limpios %>% gg_season(adjusted, labels = "both") +
+    ggtitle('Accion Disney') + ylab('close') + xlab('date')
+
+ggplotly(yearly_data_plot)
+
+```
+
+```{r}
+#Gráficas de rezago
+lags_plots = datos_limpios %>% 
+  filter(year(date) > 2018) %>% 
+  gg_lag(adjusted, geom = "point", lags = 1:12) + labs(x = "lag(Tiempo, k)")
+
+suppressWarnings(ggplotly(lags_plots))
+```
+
+```{r}
+
+```
+
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 

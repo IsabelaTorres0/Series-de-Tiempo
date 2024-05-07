@@ -1,0 +1,180 @@
+---
+title: "Proy2"
+subtitle: 'Clase series de tiempo, primavera 2024'
+author: 'Isabela Torres, itorresseptien.uribe@iteso.mx'
+output: html_document
+date: "2024-02-29"
+---
+#Importación de paqueterias
+```{r}
+library(tidyverse)
+library(tidyquant)
+library(tsibble)
+library(plotly)
+library(lubridate)
+library(ggplot2)
+library(fable)
+library(feasts)
+```
+
+##Importación de datos
+En los siguientes datos de muestra como importar los datos a mi base de datos se utiliza la siguiente función
+```{r}
+(target <- tq_get("TGT", get = "stock.prices", from = "2014-01-01", to = "2024-01-29"))
+target
+```
+
+#Limpieza de datos
+En las siguientes lineas limpiaremos, eliminando aquellos datos que no necesitaremos 
+```{r}
+datos_limpios = select(target, -open, -high, -low, -close, -volume)
+datos_limpios = as_tsibble(datos_limpios)
+datos_limpios
+```
+
+#Visualización 
+Aqui mostramos la gráfica de las acciones que necesitamos
+```{r}
+library(feasts)
+datos_limpios %>% 
+  autoplot(adjusted) +
+  labs(y = "close", title ="Accion target")
+```
+#Rellenamos
+Rellenamos los huecos para poder graficar
+```{r}
+datos_limpios <- datos_limpios %>%
+  fill_gaps() 
+```
+
+#Realizamos graficas Estacionales
+Una gráfica estacional es lo mismo que un time plot pero, graficada usando los periodos estacionales. En este caso la estacionalidad es mensual.
+Las partes sin grafica son los huecos rellenados
+```{r}
+library(feasts)
+
+datos_limpios %>% 
+  ungroup() %>%
+  gg_season(adjusted, labels = "both") +
+  labs(y = "close", x = "date",title ="Accion target")
+```
+
+Graficamos estacionalmente de forma anual
+```{r}
+
+yearly_data_plot = datos_limpios %>% gg_season(adjusted, labels = "both") +
+    ggtitle('Accion Target') + ylab('close') + xlab('date')
+
+ggplotly(yearly_data_plot)
+
+```
+
+#A continuación realizamos las graficas de rezago
+Estas solo contienen la información de lunes a viernes porque es cuando está abierto el mercado o la accion esta en uso
+```{r}
+lags_plots = datos_limpios %>% 
+  filter(year(date) > 2018) %>% 
+  gg_lag(adjusted, geom = "point", lags = 1:12) + labs(x = "lag(Tiempo, k)")
+
+suppressWarnings(ggplotly(lags_plots))
+```
+
+
+####
+```{r}
+datos_limpios %>% 
+  ACF(adjusted, lag_max = 24) %>% 
+  autoplot() + labs(title='Accion de Target por año')
+```
+```{r}
+
+```
+
+```{r}
+histogram = ggplot(datos_limpios, aes(x = date)) +
+  geom_histogram( bins = 20, fill = "black", color = "black", alpha = 0.5) +
+  labs(title = "Histograma",
+       x = "tiempo",
+       y = "Densidad")
+
+ggplotly(histogram)
+```
+#Sacar los valores atipicos
+```{r}
+ttl_m_dlrs <- datos_limpios %>% select('date')
+ttl_m_dlrs <- as.numeric(unlist(ttl_m_dlrs[,1]))
+summary(ttl_m_dlrs)[2] - 1.5*IQR(ttl_m_dlrs) >= summary(ttl_m_dlrs)[1]
+```
+
+```{r}
+summary(ttl_m_dlrs)[5] + 1.5*IQR(ttl_m_dlrs) <= summary(ttl_m_dlrs)[6]
+```
+```{r}
+train <- datos_limpios %>% select(adjusted) %>% filter_index("2014 Jan" ~ "2024 Jun")
+test <- datos_limpios %>% select(adjusted) %>% filter_index("2024 Jul" ~ "2024 Dec")
+tstng_prds <- 6
+frcst_prds <- 6
+```
+
+
+```{r}
+#Ajustar el modelo Seasonal Naive
+models_fit <- train %>% 
+  model(`Seasonal naive` = SNAIVE(adjusted ))
+
+
+# Realizar pronósticos
+models_tst <- models_fit %>% forecast(h = tstng_prds)
+
+# Filtrar datos para 2018 y generar el gráfico
+snaive_plot <- models_tst %>% 
+  autoplot() +
+  ggtitle('Seasonal Naive') + ylab('adjusted') + xlab('fecha')
+
+# Mostrar el gráfico
+snaive_plot
+```
+
+
+#Intervalos de prediccion
+```{r}
+models_tst
+```
+
+```{r}
+
+
+
+aug %>% ACF(.resid)
+```
+
+
+```{r}
+aug %>% ACF(.resid) %>% autoplot() + ggtitle("ACF of residuals")
+
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

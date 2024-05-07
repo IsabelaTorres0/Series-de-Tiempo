@@ -1,0 +1,78 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+#descargar paqueterias
+library(tidyverse)
+library(tsibble)
+library(fable)
+library(feasts)
+library(fpp3)
+library(patchwork)
+library(tidyquant)
+library(plotly)
+library(lubridate)
+library(ggplot2)
+library(forecast)
+library(dplyr)
+library(tidyr)
+library(magrittr)
+```
+
+```{r}
+#Descargar datos
+data = tq_get(c("TSLA", "DIS"), get = "stock.prices", from = "2023-01-01", to = "2024-03-29") %>% select(symbol, date, adjusted)
+data
+
+```
+
+```{r}
+data = pivot_wider(data, id_cols = date, names_from = symbol, values_from = adjusted)
+data
+
+```
+
+```{r}
+data = mutate(data, t = row_number())
+data = as_tsibble(data, index=t)
+data
+```
+
+```{r}
+fit_var = data %>% model(var = VAR(vars(TSLA,DIS)))
+
+```
+
+```{r}
+fit_var <- data %>% model(var = VAR(vars(data, TSLA, DIS)))
+
+```
+
+
+```{r}
+fit_var |>
+  augment() |>
+  ACF(.innov) |>
+  autoplot()
+
+```
+
+```{r}
+fit_var |>
+  forecast(h=20) |>
+  autoplot(data)
+
+```
+
+```{r}
+returns = data %>% group_by(symbol) %>% tq_transmute(select = adjusted,
+                mutate_fun = periodReturn,
+                period = "daily",
+                col_rename="return")
+
+```
+
+
+
